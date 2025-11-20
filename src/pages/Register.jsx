@@ -2,7 +2,11 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { saveUser } from "../lib/storage";
 import { isEmail } from "../lib/validators";
-import logo from "../assets/s2s.jpg"; // <-- логотип
+import logo from "../assets/s2s.jpg";
+
+// 🔥 Firebase
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../lib/firebase";
 
 // общий список пользователей для админ-таблицы / Excel
 const USERS_KEY = "skill2skill_users";
@@ -43,25 +47,57 @@ export default function Register() {
 
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     const eobj = {};
+
     if (!isEmail(form.email)) eobj.email = "Введите корректный email";
-    if ((form.password || "").length < 6) eobj.password = "Минимум 6 символов";
+    if ((form.password || "").length < 6)
+      eobj.password = "Минимум 6 символов";
+
     setErr(eobj);
     if (Object.keys(eobj).length) return;
 
-    // основной юзер для логина
-    const newUser = { email: form.email, password: form.password, bio: "" };
+    try {
+      // 🔐 создаём пользователя в Firebase Auth
+      const cred = await createUserWithEmailAndPassword(
+        auth,
+        form.email,
+        form.password
+      );
 
-    // сохраняем в «текущего» пользователя
-    saveUser(newUser);
+      // основной юзер для локального профиля
+      const newUser = {
+        email: cred.user.email,
+        password: form.password, // можно позже убрать, если не нужен локально
+        bio: "",
+      };
 
-    // добавляем/обновляем запись в общем списке пользователей (для Excel)
-    saveUserToLocalList({ email: form.email });
+      // сохраняем «текущего» пользователя локально
+      saveUser(newUser);
 
-    // редирект на логин, как и раньше
-    nav("/login", { state: { email: form.email } });
+      // добавляем/обновляем запись в общем списке пользователей (для Excel / админки)
+      saveUserToLocalList({ email: cred.user.email });
+
+      // редирект на логин, как и раньше, с автоподстановкой email
+      nav("/login", { state: { email: cred.user.email } });
+    } catch (error) {
+      console.error(error);
+
+      const next = {};
+
+      if (error.code === "auth/email-already-in-use") {
+        next.email = "Этот email уже зарегистрирован";
+      } else if (error.code === "auth/invalid-email") {
+        next.email = "Некорректный email";
+      } else if (error.code === "auth/weak-password") {
+        next.password = "Слишком простой пароль";
+      } else {
+        next.password = "Ошибка регистрации. Попробуйте ещё раз.";
+      }
+
+      setErr(next);
+    }
   };
 
   return (

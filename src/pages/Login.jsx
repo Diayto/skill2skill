@@ -1,48 +1,76 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { getUsers, setAuth } from "../lib/storage";
+import { setAuth } from "../lib/storage";
 import { isEmail } from "../lib/validators";
-import logo from "../assets/s2s.jpg"; // <-- твой логотип
+import logo from "../assets/s2s.jpg";
 
-export default function Login(){
+// 🔥 Firebase
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../lib/firebase";
+
+export default function Login() {
   const nav = useNavigate();
   const loc = useLocation();
-  const [form, setForm] = useState({ email:"", password:"" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [err, setErr] = useState({});
 
-  useEffect(()=>{
+  useEffect(() => {
     const pre = loc.state?.email;
-    if(pre) setForm(s=>({...s, email: pre}));
+    if (pre) setForm((s) => ({ ...s, email: pre }));
   }, [loc.state]);
 
-  const set = (k,v)=> setForm(s=>({...s,[k]:v}));
+  const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
-  const submit = (e)=>{
+  const submit = async (e) => {
     e.preventDefault();
     const eobj = {};
-    if(!isEmail(form.email)) eobj.email = "Неверный email";
-    if(!form.password) eobj.password = "Введите пароль";
+
+    if (!isEmail(form.email)) eobj.email = "Неверный email";
+    if (!form.password) eobj.password = "Введите пароль";
+
     setErr(eobj);
-    if(Object.keys(eobj).length) return;
+    if (Object.keys(eobj).length) return;
 
-    const users = getUsers();
-    const ok = users.find(u => u.email===form.email && u.password===form.password);
-    if(!ok){ setErr({ password: "Неверный email или пароль" }); return; }
+    try {
+      // 🔐 Вход через Firebase Auth
+      const cred = await signInWithEmailAndPassword(
+        auth,
+        form.email,
+        form.password
+      );
 
-    setAuth(ok.email);
-    nav("/home");
+      // сохраняем email в локальном storage,
+      // чтобы остальная логика (профиль, чат и т.п.) продолжала работать
+      setAuth(cred.user.email);
+
+      nav("/home");
+    } catch (error) {
+      console.error(error);
+
+      let msg = "Ошибка входа. Попробуйте ещё раз.";
+      if (
+        error.code === "auth/user-not-found" ||
+        error.code === "auth/wrong-password"
+      ) {
+        msg = "Неверный email или пароль";
+      }
+
+      setErr((prev) => ({ ...prev, password: msg }));
+    }
   };
 
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        {/* ЛОГО вместо S2S/Skill2Skill */}
-        {/* ЛОГО по центру и крупнее */}
-<div className="brand brand-center">
-  <img className="brand-logo-auth brand-logo-big" src={logo} alt="Skill2Skill" draggable="false" />
-  <div className="brand-sub">С возвращением!</div>
-</div>
-
+        <div className="brand brand-center">
+          <img
+            className="brand-logo-auth brand-logo-big"
+            src={logo}
+            alt="Skill2Skill"
+            draggable="false"
+          />
+          <div className="brand-sub">С возвращением!</div>
+        </div>
 
         <h2 className="auth-title">Войти</h2>
 
@@ -50,15 +78,28 @@ export default function Login(){
           <label className="input-row">
             <span className="input-icon" aria-hidden>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <rect x="3.5" y="6.5" width="17" height="11" rx="2.2" stroke="currentColor" strokeWidth="1.5"/>
-                <path d="M4 7l8 6 8-6" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                <rect
+                  x="3.5"
+                  y="6.5"
+                  width="17"
+                  height="11"
+                  rx="2.2"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
+                <path
+                  d="M4 7l8 6 8-6"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  fill="none"
+                />
               </svg>
             </span>
             <input
               type="email"
               placeholder="you@example.com"
               value={form.email}
-              onChange={(e)=>set('email', e.target.value)}
+              onChange={(e) => set("email", e.target.value)}
             />
           </label>
           {err.email && <div className="error">{err.email}</div>}
@@ -66,20 +107,34 @@ export default function Login(){
           <label className="input-row">
             <span className="input-icon" aria-hidden>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-                <path d="M8 11V8a4 4 0 118 0v3" stroke="currentColor" strokeWidth="1.5"/>
+                <rect
+                  x="5"
+                  y="11"
+                  width="14"
+                  height="9"
+                  rx="2"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
+                <path
+                  d="M8 11V8a4 4 0 118 0v3"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
               </svg>
             </span>
             <input
               type="password"
               placeholder="Ваш пароль"
               value={form.password}
-              onChange={(e)=>set('password', e.target.value)}
+              onChange={(e) => set("password", e.target.value)}
             />
           </label>
           {err.password && <div className="error">{err.password}</div>}
 
-          <button className="btn btn-primary" type="submit">Войти</button>
+          <button className="btn btn-primary" type="submit">
+            Войти
+          </button>
 
           <p className="auth-switch">
             Нет аккаунта? <Link to="/register">Создать</Link>
@@ -88,9 +143,9 @@ export default function Login(){
       </div>
 
       <div className="auth-decor">
-        <div className="bubble b1"/>
-        <div className="bubble b2"/>
-        <div className="bubble b3"/>
+        <div className="bubble b1" />
+        <div className="bubble b2" />
+        <div className="bubble b3" />
       </div>
     </div>
   );

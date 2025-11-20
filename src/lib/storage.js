@@ -1,3 +1,6 @@
+import { signOut } from "firebase/auth";
+import { auth } from "./firebase";
+
 // ---------- USERS / AUTH ----------
 const KEY = "s2s-users";
 const AUTH = "s2s-auth";
@@ -66,8 +69,15 @@ export function getAuth() {
     return null;
   }
 }
-export function logout() {
+
+// 👇 теперь логаут чистит и localStorage, и Firebase-сессию
+export async function logout() {
   localStorage.removeItem(AUTH);
+  try {
+    await signOut(auth);
+  } catch (e) {
+    console.error("Firebase signOut failed", e);
+  }
 }
 
 // ---------- SUBSCRIPTION (plans: basic / plus / pro) ----------
@@ -315,7 +325,7 @@ export function remainingMsForLesson(aEmail, bEmail) {
  * Оба участника получат один и тот же URL.
  */
 export function getVideoRoomUrl(aEmail, bEmail) {
-  const id = threadId(aEmail, bEmail);            // например "a@gmail.com::b@gmail.com"
-  const safeId = id.replace(/[^a-z0-9]/gi, "-");  // превращаем в безопасное имя
+  const id = threadId(aEmail, bEmail); // например "a@gmail.com::b@gmail.com"
+  const safeId = id.replace(/[^a-z0-9]/gi, "-"); // превращаем в безопасное имя
   return `https://meet.jit.si/skill2skill-${safeId}`;
 }
