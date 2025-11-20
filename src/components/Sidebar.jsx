@@ -171,7 +171,7 @@ export default function Sidebar({ open, onClose }) {
             to="/profile"
             icon="profile"
             label={t("nav.profile")}
-            active={location.pathname.startsWith("/profile")}
+            active={location.pathname.startsWith("/profile") && !location.search.includes("section=sub")}
             onClick={onClose}
           />
           <NavItem
@@ -185,7 +185,10 @@ export default function Sidebar({ open, onClose }) {
             to="/profile?section=sub"
             icon="sub"
             label={t("nav.sub")}
-            active={location.search.includes("section=sub")}
+            active={
+              location.pathname.startsWith("/profile") &&
+              location.search.includes("section=sub")
+            }
             onClick={onClose}
           />
         </nav>

@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { getAverageRating } from "../lib/storage";
 
 function StarsDisplay({ value }) {
-  const full = Math.round(value);
+  const full = Math.round(value || 0);
   return (
     <span className="stars small" aria-hidden>
       {[1, 2, 3, 4, 5].map((n) => (
@@ -15,28 +15,29 @@ function StarsDisplay({ value }) {
 }
 
 export default function UserCard({ user }) {
+  // безопасно считаем рейтинг даже если прилетел «сырой» объект из Firestore
   const avg = getAverageRating(user);
   const hasRating = avg > 0;
 
+  const email = user.email || "";
   const displayName =
     user.fullName ||
     user.name ||
-    (user.email ? user.email.split("@")[0] : "Без имени");
+    (email ? email.split("@")[0] : "Без имени");
 
-  const offersText = user.offers?.length
-    ? user.offers.slice(0, 3).join(", ")
-    : null;
-  const wantsText = user.wants?.length
-    ? user.wants.slice(0, 3).join(", ")
-    : null;
+  const offers = Array.isArray(user.offers) ? user.offers : [];
+  const wants = Array.isArray(user.wants) ? user.wants : [];
+
+  const offersText = offers.length ? offers.slice(0, 3).join(", ") : null;
+  const wantsText = wants.length ? wants.slice(0, 3).join(", ") : null;
 
   return (
     <div className="user-card">
       {user.photo ? (
-        <img className="avatar-img" src={user.photo} alt="avatar" />
+        <img className="avatar-img" src={user.photo} alt={displayName} />
       ) : (
         <div className="avatar">
-          {user.email ? user.email[0].toUpperCase() : "?"}
+          {email ? email[0].toUpperCase() : "?"}
         </div>
       )}
 
@@ -48,7 +49,7 @@ export default function UserCard({ user }) {
             <div className="uc-role">
               {user.bio || "Пока без описания профиля"}
             </div>
-            <div className="uc-email">{user.email}</div>
+            <div className="uc-email">{email}</div>
           </div>
 
           <div className="uc-rating">
@@ -56,7 +57,7 @@ export default function UserCard({ user }) {
               <>
                 <StarsDisplay value={avg} />
                 <span className="star-num">
-                  {Number(avg).toFixed ? Number(avg).toFixed(1) : avg}
+                  {Number.isFinite(avg) ? avg.toFixed(1) : avg}
                 </span>
               </>
             ) : (
@@ -82,13 +83,13 @@ export default function UserCard({ user }) {
         {/* действия по карточке */}
         <div className="uc-actions">
           <Link
-            to={`/profile/${encodeURIComponent(user.email)}`}
+            to={`/profile/${encodeURIComponent(email)}`}
             className="btn-ghost"
           >
             Профиль
           </Link>
           <Link
-            to={`/chat/${encodeURIComponent(user.email)}`}
+            to={`/chat/${encodeURIComponent(email)}`}
             className="btn-mini"
           >
             Написать

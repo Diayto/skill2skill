@@ -1,18 +1,59 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import UserCard from "../components/UserCard";
-import { getUsers } from "../lib/storage";
+import { getUsers, getAuth } from "../lib/storage";
+import { fetchRemoteUsers } from "../lib/usersRemote"; // 🔥 Firestore
 
 export default function Home() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [mode, setMode] = useState("all"); // all | offers | wants
 
-  const users = getUsers();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  // текущий пользователь
+  const me = getAuth();
+  const myEmail = (me?.email || "").toLowerCase();
+
+  // один раз при монтировании грузим список
+  useEffect(() => {
+    async function load() {
+      try {
+        const list = await fetchRemoteUsers();
+
+        // если в Firestore пока пусто (или мы только что подключили) —
+        // чтобы не ломать демо, подхватим локальные данные
+        if (!list || list.length === 0) {
+          const local = getUsers();
+          setUsers(local);
+        } else {
+          setUsers(list);
+        }
+      } catch (e) {
+        console.error("Failed to load users from Firestore", e);
+        setLoadError("Не удалось загрузить пользователей из облака.");
+        // fallback на локальный список, чтобы страница не была пустой
+        setUsers(getUsers());
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
+  }, []);
 
   const filtered = useMemo(() => {
-    let list = users;
+    let list = users || [];
+
+    // 👇 исключаем самого себя из списка
+    if (myEmail) {
+      list = list.filter(
+        (u) => (u.email || "").toLowerCase() !== myEmail
+      );
+    }
 
     const s = q.trim().toLowerCase();
     if (s) {
@@ -37,7 +78,7 @@ export default function Home() {
     }
 
     return list;
-  }, [users, q, mode]);
+  }, [users, q, mode, myEmail]);
 
   return (
     <>
@@ -84,8 +125,23 @@ export default function Home() {
             </div>
           </section>
 
+          {/* Статус загрузки / ошибка */}
+          {loading && (
+            <div className="card home-empty">
+              <h3>Загружаем пользователей…</h3>
+              <p>Это может занять несколько секунд.</p>
+            </div>
+          )}
+
+          {!loading && loadError && (
+            <div className="card home-empty">
+              <h3>Есть небольшая проблема</h3>
+              <p>{loadError}</p>
+            </div>
+          )}
+
           {/* Список пользователей */}
-          {filtered.length === 0 ? (
+          {!loading && filtered.length === 0 ? (
             <div className="card home-empty">
               <h3>Пока никого не нашлось</h3>
               <p>
@@ -93,7 +149,9 @@ export default function Home() {
                 После Skill Day новые анкеты появятся здесь автоматически.
               </p>
             </div>
-          ) : (
+          ) : null}
+
+          {!loading && filtered.length > 0 && (
             <div className="grid">
               {filtered.map((u, i) => (
                 <UserCard key={u.email + i} user={u} />

@@ -1335,3 +1335,118 @@ a:active{
   border-radius: 16px;
   overflow: hidden;
 }
+
+/* =========================
+   Мобильная версия (до 768px)
+   ========================= */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+
+  /* Навбар поуже и поплотнее */
+  .navbar {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    height: 56px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .brand-slot {
+    margin: 0 6px 0 4px;
+  }
+
+  .search {
+    height: 38px;
+    font-size: 13px;
+    padding: 0 10px;
+  }
+
+  .profile-btn {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  /* Общие отступы контейнера */
+  .container {
+    padding-inline: 12px;
+  }
+
+  .home-shell {
+    gap: 12px;
+  }
+
+  /* Список пользователей — одна колонка */
+  .grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .user-card {
+    padding: 12px 12px;
+  }
+
+  /* Фильтры сверху — в столбик */
+  .home-filters {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .mode-toggle {
+    width: 100%;
+    overflow-x: auto;
+    gap: 6px;
+  }
+
+  .mode-pill {
+    padding: 6px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  /* Формы логина/регистрации */
+  .auth-wrap {
+    padding: 24px 12px;
+  }
+
+  .auth-card {
+    max-width: 100%;
+    padding: 20px 14px 18px;
+  }
+
+  .auth-title {
+    font-size: 20px;
+  }
+
+  .auth-desc {
+    font-size: 13px;
+  }
+
+  /* Сайдбар на телефоне — не на пол-экрана */
+  .sidebar {
+    width: 80vw;
+    max-width: 320px;
+  }
+
+  /* Профиль — шапка в колонку */
+  .profile-head {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Чат — чуть компактнее */
+  .chat-shell {
+    grid-template-rows: 56px 1fr auto;
+  }
+
+  .chat-body {
+    padding-inline: 10px;
+  }
+
+  .chat-input {
+    padding-inline: 10px;
+  }
+}

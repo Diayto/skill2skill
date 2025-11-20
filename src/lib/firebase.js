@@ -1,6 +1,7 @@
 // src/lib/firebase.js
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAW7O_aEWC32W1k0pVHjA43xcTk6y9P58A",
@@ -16,3 +17,4 @@ const app = initializeApp(firebaseConfig);
 
 // 👇 это нам нужно для логина/регистрации
 export const auth = getAuth(app);
+export const db = getFirestore(app);

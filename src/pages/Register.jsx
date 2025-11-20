@@ -7,6 +7,7 @@ import logo from "../assets/s2s.jpg";
 // 🔥 Firebase
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebase";
+import { upsertRemoteUser } from "../lib/usersRemote"; // 👈 глобальный профиль
 
 // общий список пользователей для админ-таблицы / Excel
 const USERS_KEY = "skill2skill_users";
@@ -66,10 +67,12 @@ export default function Register() {
         form.password
       );
 
-      // основной юзер для локального профиля
+      const email = cred.user.email;
+
+      // основной юзер для локального профиля (для остальных фич)
       const newUser = {
-        email: cred.user.email,
-        password: form.password, // можно позже убрать, если не нужен локально
+        email,
+        password: form.password, // можно позже убрать, если локально не нужен
         bio: "",
       };
 
@@ -77,10 +80,14 @@ export default function Register() {
       saveUser(newUser);
 
       // добавляем/обновляем запись в общем списке пользователей (для Excel / админки)
-      saveUserToLocalList({ email: cred.user.email });
+      saveUserToLocalList({ email });
+
+      // 🔥 сохраняем глобальный профиль в Firestore,
+      // чтобы все устройства видели этого пользователя
+      await upsertRemoteUser({ email });
 
       // редирект на логин, как и раньше, с автоподстановкой email
-      nav("/login", { state: { email: cred.user.email } });
+      nav("/login", { state: { email } });
     } catch (error) {
       console.error(error);
 
