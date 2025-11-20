@@ -1,6 +1,6 @@
 // src/components/Sidebar.jsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { logout } from "../lib/storage";
+import { logout, getAuth } from "../lib/storage";
 import { useLang } from "../i18n/LangContext";
 
 function Icon({ type }) {
@@ -95,6 +95,28 @@ function Icon({ type }) {
     );
   }
 
+  if (type === "admin") {
+    return (
+      <svg {...common}>
+        <rect
+          x="4"
+          y="5"
+          width="16"
+          height="14"
+          rx="2.2"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <path
+          d="M8 11h8M8 14h4"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
   // logout
   return (
     <svg {...common}>
@@ -136,10 +158,18 @@ function NavItem({ to, label, icon, active, onClick }) {
   );
 }
 
+// 🔐 список админ-почт (тот же, что и в App.jsx)
+const ADMIN_EMAILS = ["skill2skilladmin@gmail.com"].map((e) =>
+  e.toLowerCase().trim()
+);
+
 export default function Sidebar({ open, onClose }) {
   const location = useLocation();
   const nav = useNavigate();
   const { lang, setLang, t } = useLang();
+
+  const me = getAuth()?.email?.toLowerCase().trim() || "";
+  const isAdmin = ADMIN_EMAILS.includes(me);
 
   const handleLogout = () => {
     logout();
@@ -171,7 +201,10 @@ export default function Sidebar({ open, onClose }) {
             to="/profile"
             icon="profile"
             label={t("nav.profile")}
-            active={location.pathname.startsWith("/profile") && !location.search.includes("section=sub")}
+            active={
+              location.pathname.startsWith("/profile") &&
+              !location.search.includes("section=sub")
+            }
             onClick={onClose}
           />
           <NavItem
@@ -191,6 +224,17 @@ export default function Sidebar({ open, onClose }) {
             }
             onClick={onClose}
           />
+
+          {/* 🔐 Пункт меню только для админов */}
+          {isAdmin && (
+            <NavItem
+              to="/admin/users"
+              icon="admin"
+              label="Админ-панель"
+              active={location.pathname.startsWith("/admin")}
+              onClick={onClose}
+            />
+          )}
         </nav>
 
         <div className="sidebar-footer">

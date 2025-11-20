@@ -8,25 +8,26 @@ import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
 import About from "./pages/About";
-import AdminUsers from "./pages/AdminUsers"; // 👈 админ-страница
-import { getAuth } from "./lib/storage";      // 👈 добавили
+import AdminUsers from "./pages/AdminUsers"; // админ-страница
+import { getAuth } from "./lib/storage";
 
-// 🔐 Список админ-почт
-const ADMIN_EMAILS = [
-  "skill2skilladmin@gmail.com", // 👈 тут сейчас твой админ-акк
-];
+// 🔐 список админ-почт (можно добавить ещё, если нужно)
+const ADMIN_EMAILS = ["skill2skilladmin@gmail.com"].map((e) =>
+  e.toLowerCase().trim()
+);
 
+// Защищённый роут для админки
 function AdminRoute({ children }) {
   const auth = getAuth();
-  const email = auth?.email || "";
+  const email = auth?.email?.toLowerCase().trim() || "";
 
+  // не залогинен → на логин
   if (!email) {
-    // не залогинен → на логин
     return <Navigate to="/login" replace />;
   }
 
+  // залогинен, но не админ → на домашнюю страницу
   if (!ADMIN_EMAILS.includes(email)) {
-    // залогинен, но не админ → на главную после входа
     return <Navigate to="/home" replace />;
   }
 
@@ -36,7 +37,7 @@ function AdminRoute({ children }) {
 export default function App() {
   return (
     <Routes>
-      {/* Главная страница-презентация (Landing) */}
+      {/* Лэндинг по умолчанию */}
       <Route path="/" element={<Landing />} />
 
       {/* О нас */}
@@ -62,7 +63,7 @@ export default function App() {
         }
       />
 
-      {/* Фолбэк на ленд */}
+      {/* Фолбэк на лэндинг */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
