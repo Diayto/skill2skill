@@ -9,11 +9,34 @@ import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
 import About from "./pages/About";
 import AdminUsers from "./pages/AdminUsers"; // 👈 админ-страница
+import { getAuth } from "./lib/storage";      // 👈 добавили
+
+// 🔐 Список админ-почт
+const ADMIN_EMAILS = [
+  "skill2skilladmin@gmail.com", // 👈 тут сейчас твой админ-акк
+];
+
+function AdminRoute({ children }) {
+  const auth = getAuth();
+  const email = auth?.email || "";
+
+  if (!email) {
+    // не залогинен → на логин
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!ADMIN_EMAILS.includes(email)) {
+    // залогинен, но не админ → на главную после входа
+    return <Navigate to="/home" replace />;
+  }
+
+  return children;
+}
 
 export default function App() {
   return (
     <Routes>
-      {/* Главная страница-презентация */}
+      {/* Главная страница-презентация (Landing) */}
       <Route path="/" element={<Landing />} />
 
       {/* О нас */}
@@ -29,10 +52,17 @@ export default function App() {
       <Route path="/profile/:email" element={<Profile />} />
       <Route path="/chat/:email" element={<Chat />} />
 
-      {/* Админ-таблица пользователей / Excel */}
-      <Route path="/admin/users" element={<AdminUsers />} />
+      {/* 🔐 Админ-таблица пользователей / Excel */}
+      <Route
+        path="/admin/users"
+        element={
+          <AdminRoute>
+            <AdminUsers />
+          </AdminRoute>
+        }
+      />
 
-      {/* Фолбэк на главную */}
+      {/* Фолбэк на ленд */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

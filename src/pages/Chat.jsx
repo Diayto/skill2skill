@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+// src/pages/Chat.jsx
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getAuth, getUser } from "../lib/storage";
 import {
-  getMessages,
-  sendMessage,
-  markRead,
-  getLessonsRemaining,
-  canStartLesson,
-  startLesson,
-  getActiveLesson,
-  remainingMsForLesson,
+  getAuth,
+  getUser,
   getLessonsCap,
-  getVideoRoomUrl,           // 👈 добавили
+  getVideoRoomUrl,
 } from "../lib/storage";
+
+import {
+  subscribeToMessages,
+  sendMessageRemote,
+  markReadRemote,
+} from "../lib/chatRemote";
+
+import {
+  getLessonsRemainingRemote,
+  startLessonRemote,
+  subscribeToSession,
+} from "../lib/lessonsRemote";
 
 function Avatar({ user }) {
   if (user?.photo)
@@ -70,83 +76,146 @@ function VideoCall({ roomUrl }) {
 export default function Chat() {
   const nav = useNavigate();
   const { email } = useParams(); // собеседник
-  const me = getAuth()?.email || "";
+
+  const auth = getAuth();
+  const me = auth?.email || "";
+
   const other = getUser(email) || { email };
+
+  const [draft, setDraft] = useState("");
+  const [messages, setMessages] = useState([]);
+
+  // кредиты уроков на сегодня (из Firestore)
+  const [myRemain, setMyRemain] = useState(null);
+  const [otherRemain, setOtherRemain] = useState(null);
+
+  // сессия урока (общая для обоих)
+  const [session, setSession] = useState(null);
+
+  // тикер раз в секунду, чтобы таймер обновлялся
+  const [tick, setTick] = useState(0);
+
+  const listRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (!me) nav("/login");
   }, [me, nav]);
 
-  const [draft, setDraft] = useState("");
-  const [tick, setTick] = useState(0);
-  const [now, setNow] = useState(Date.now());
-  const listRef = useRef(null);
-  const inputRef = useRef(null);
-
-  const msgs = useMemo(() => getMessages(email, me), [email, me, tick]);
-
-  // уроки (кредиты) на сегодня
-  const myRemain = getLessonsRemaining(me);
-  const otherRemain = getLessonsRemaining(email);
-  const myCap = getLessonsCap(me); // кап берём из storage (1 без подписки, 3 с подпиской)
-  const otherCap = getLessonsCap(email);
-
-  // активная сессия урока и оставшееся время
-  const session = getActiveLesson(me, email);
-  const leftMs = remainingMsForLesson(me, email);
-  const lessonActive = !!(session && session.active && leftMs > 0);
-
-  // ссылка на видеокомнату для этой пары (одинаковая у обоих участников)
-  const videoUrl = lessonActive ? getVideoRoomUrl(me, email) : "";
-
-  // автоскролл
+  // ---------- ЧАТ: подписка на Firestore ----------
   useEffect(() => {
-    listRef.current?.scrollTo({
+    if (!me || !email) return;
+    const unsub = subscribeToMessages(email, me, async (list) => {
+      setMessages(list);
+      try {
+        await markReadRemote(email, me);
+      } catch (e) {
+        console.error("Failed to markReadRemote", e);
+      }
+    });
+    return () => unsub && unsub();
+  }, [me, email]);
+
+  // автоскролл при новых сообщениях
+  useEffect(() => {
+    if (!listRef.current) return;
+    listRef.current.scrollTo({
       top: listRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [msgs.length]);
+  }, [messages.length]);
 
-  // отметим входящие прочитанными
+  // ---------- УРОКИ: начальные кредиты ----------
   useEffect(() => {
-    markRead(email, me);
-    setTick((t) => t + 1);
-  }, [email, me]);
+    if (!me || !email) return;
+    let canceled = false;
 
-  // тикер раз в секунду — для таймера
+    async function loadCredits() {
+      try {
+        const [mine, otherLeft] = await Promise.all([
+          getLessonsRemainingRemote(me),
+          getLessonsRemainingRemote(email),
+        ]);
+        if (!canceled) {
+          setMyRemain(mine);
+          setOtherRemain(otherLeft);
+        }
+      } catch (e) {
+        console.error("loadCredits error", e);
+      }
+    }
+    loadCredits();
+
+    return () => {
+      canceled = true;
+    };
+  }, [me, email]);
+
+  // ---------- УРОКИ: подписка на сессию ----------
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    if (!me || !email) return;
+    const unsub = subscribeToSession(me, email, (sess) => {
+      setSession(sess);
+    });
+    return () => unsub && unsub();
+  }, [me, email]);
+
+  // тикер для таймера (каждую секунду перерисовываем)
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
-  const send = () => {
+  const myCap = getLessonsCap(me);
+  const otherCap = getLessonsCap(email);
+
+  const leftMs = session ? Math.max(0, session.end - Date.now()) : 0;
+  const lessonActive = !!(session && session.active && leftMs > 0);
+
+  // ссылка на видеокомнату для пары (одинаковая у обоих)
+  const videoUrl = lessonActive ? getVideoRoomUrl(me, email) : "";
+
+  const handleSend = async () => {
     if (!draft.trim()) return;
-    sendMessage(email, me, draft);
-    setDraft("");
-    setTick((t) => t + 1);
-    inputRef.current?.focus();
-  };
-  const onKey = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
+    try {
+      await sendMessageRemote(email, me, draft);
+      setDraft("");
+      inputRef.current?.focus();
+    } catch (err) {
+      console.error("sendMessageRemote error", err);
+      alert("Не удалось отправить сообщение. Попробуйте ещё раз.");
     }
   };
 
-  const onStartLesson = () => {
-    const ok = canStartLesson(me, email);
-    if (!ok) {
-      // универсальный текст, без конкретных чисел
-      alert("Недостаточно уроков на сегодня у одного из участников.");
-      return;
+  const onKey = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
-    const r = startLesson(me, email);
-    if (!r.ok && r.reason === "no-credits") {
-      alert("Недостаточно уроков на сегодня у одного из участников.");
-      return;
-    }
-    setTick((t) => t + 1); // перерисуем
   };
+
+  const onStartLesson = async () => {
+    try {
+      const res = await startLessonRemote(me, email);
+      if (!res.ok && res.reason === "no-credits") {
+        alert("Недостаточно уроков на сегодня у одного из участников.");
+        return;
+      }
+      // обновим кредиты после старта урока
+      const [mine, otherLeft] = await Promise.all([
+        getLessonsRemainingRemote(me),
+        getLessonsRemainingRemote(email),
+      ]);
+      setMyRemain(mine);
+      setOtherRemain(otherLeft);
+    } catch (e) {
+      console.error("startLessonRemote error", e);
+      alert("Не удалось начать урок. Попробуйте ещё раз.");
+    }
+  };
+
+  const canStart =
+    (myRemain ?? 0) > 0 && (otherRemain ?? 0) > 0 && !lessonActive;
 
   return (
     <div className="chat-shell">
@@ -163,19 +232,19 @@ export default function Chat() {
           className="chat-actions"
           style={{ gap: 12, alignItems: "center" }}
         >
-          {/* Информация о кредитах на сегодня */}
+          {/* Информация о кредитах на сегодня (из Firestore) */}
           <div className="pill">
-            Мои уроки: <b>{myRemain}</b>/{myCap}
+            Мои уроки: <b>{myRemain ?? "…"}</b>/{myCap}
           </div>
           <div className="pill">
-            Его уроки: <b>{otherRemain}</b>/{otherCap}
+            Его уроки: <b>{otherRemain ?? "…"}</b>/{otherCap}
           </div>
 
           {!lessonActive ? (
             <button
               className="btn btn-primary"
               onClick={onStartLesson}
-              disabled={!canStartLesson(me, email)}
+              disabled={!canStart}
               title="Старт урока ровно на 1 час"
             >
               Начать урок
@@ -186,10 +255,7 @@ export default function Chat() {
             </div>
           )}
 
-          <Link
-            className="btn"
-            to={`/profile/${encodeURIComponent(email)}`}
-          >
+          <Link className="btn" to={`/profile/${encodeURIComponent(email)}`}>
             Профиль
           </Link>
           <Link className="btn" to="/home">
@@ -202,14 +268,14 @@ export default function Chat() {
       {lessonActive && <VideoCall roomUrl={videoUrl} />}
 
       <div className="chat-body" ref={listRef}>
-        {msgs.length === 0 ? (
+        {messages.length === 0 ? (
           <div className="chat-empty">
             Начните диалог — представьтесь и кратко опишите запрос 🙂
           </div>
         ) : (
-          msgs.map((m) => (
+          messages.map((m) => (
             <Bubble
-              key={m.id}
+              key={m.id || m.ts}
               mine={m.from === me}
               text={m.text}
               time={m.ts}
@@ -227,7 +293,7 @@ export default function Chat() {
           placeholder="Напишите сообщение... (Enter — отправить, Shift+Enter — перенос)"
           rows={2}
         />
-        <button className="btn btn-primary" onClick={send}>
+        <button className="btn btn-primary" onClick={handleSend}>
           Отправить
         </button>
       </div>
