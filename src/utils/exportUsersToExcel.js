@@ -2,13 +2,18 @@
 import * as XLSX from "xlsx";
 import { getUsers, getAverageRating } from "../lib/storage";
 
-// 🔐 тот же список админов, что и в App.jsx / AdminUsers
+// 🔐 тот же список админов, что и в App.jsx / AdminUsers / Sidebar
 const ADMIN_EMAILS = ["skill2skilladmin@gmail.com"].map((e) =>
   e.toLowerCase().trim()
 );
 
+/**
+ * Возвращает только НЕ-админов.
+ * Если передан массив source — фильтруем его.
+ * Если нет — берём пользователей из localStorage (getUsers()).
+ */
 function filterNonAdminUsers(source) {
-  const all = source || getUsers();
+  const all = source ?? getUsers();
 
   return (all || []).filter((u) => {
     const email = (u.email || "").toLowerCase().trim();
@@ -18,7 +23,7 @@ function filterNonAdminUsers(source) {
 
 /**
  * Для совместимости: если где-то ещё вызывается loadUsersFromStorage,
- * просто отдаём список пользователей (без админов).
+ * просто отдаём список пользователей (без админов) из localStorage.
  */
 export function loadUsersFromStorage() {
   return filterNonAdminUsers();
@@ -27,8 +32,8 @@ export function loadUsersFromStorage() {
 /**
  * Экспорт пользователей в Excel.
  *
- * Если передать массив users, используем его (например, то,
- * что уже подгрузили из Firestore в AdminUsers).
+ * Если передать массив users (например, из Firestore в AdminUsers) —
+ * используем его.
  * Если не передавать аргументы — берём пользователей из localStorage (getUsers()).
  */
 export function exportUsersToExcel(passedUsers) {
@@ -36,7 +41,7 @@ export function exportUsersToExcel(passedUsers) {
 
   const rows = users.map((u, index) => ({
     "#": index + 1,
-    Имя: u.fullName || u.name || "", // на будущее, если добавишь имя
+    Имя: u.fullName || u.name || "",
     Email: u.email || "",
     "Учит (offers)": Array.isArray(u.offers) ? u.offers.join(", ") : "",
     "Хочет изучать (wants)": Array.isArray(u.wants) ? u.wants.join(", ") : "",

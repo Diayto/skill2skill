@@ -5,6 +5,11 @@ import UserCard from "../components/UserCard";
 import { getUsers, getAuth } from "../lib/storage";
 import { fetchRemoteUsers } from "../lib/usersRemote"; // 🔥 Firestore
 
+// 🔐 тот же список админов, что и в App / AdminUsers / exportUsersToExcel
+const ADMIN_EMAILS = ["skill2skilladmin@gmail.com"].map((e) =>
+  e.toLowerCase().trim()
+);
+
 export default function Home() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -16,7 +21,7 @@ export default function Home() {
 
   // текущий пользователь
   const me = getAuth();
-  const myEmail = (me?.email || "").toLowerCase();
+  const myEmail = (me?.email || "").toLowerCase().trim();
 
   // один раз при монтировании грузим список
   useEffect(() => {
@@ -48,12 +53,19 @@ export default function Home() {
   const filtered = useMemo(() => {
     let list = users || [];
 
-    // 👇 исключаем самого себя из списка
+    // 👇 исключаем самого себя
     if (myEmail) {
       list = list.filter(
-        (u) => (u.email || "").toLowerCase() !== myEmail
+        (u) => (u.email || "").toLowerCase().trim() !== myEmail
       );
     }
+
+    // 👇 исключаем ВСЕ админ-почты из списка
+    list = list.filter((u) => {
+      const email = (u.email || "").toLowerCase().trim();
+      if (!email) return false;
+      return !ADMIN_EMAILS.includes(email);
+    });
 
     const s = q.trim().toLowerCase();
     if (s) {

@@ -1,3 +1,4 @@
+// src/pages/Register.jsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { saveUser } from "../lib/storage";
@@ -7,39 +8,12 @@ import logo from "../assets/s2s.jpg";
 // 🔥 Firebase
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import { upsertRemoteUser } from "../lib/usersRemote"; // 👈 глобальный профиль
+import { upsertRemoteUser } from "../lib/usersRemote"; // глобальный профиль
 
-// общий список пользователей для админ-таблицы / Excel
-const USERS_KEY = "skill2skill_users";
-
-function saveUserToLocalList(user) {
-  try {
-    const raw = localStorage.getItem(USERS_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-
-    if (!user.email) return;
-
-    const idx = list.findIndex((u) => u.email === user.email);
-    const base = {
-      ...user,
-      createdAt: user.createdAt || new Date().toISOString(),
-    };
-
-    let next;
-    if (idx >= 0) {
-      // обновляем существующую запись
-      next = [...list];
-      next[idx] = { ...next[idx], ...base };
-    } else {
-      // добавляем новую
-      next = [...list, base];
-    }
-
-    localStorage.setItem(USERS_KEY, JSON.stringify(next));
-  } catch (e) {
-    console.error("Failed to update users list", e);
-  }
-}
+// 🔐 зарезервированные админ-почты – через форму регистрировать НЕЛЬЗЯ
+const ADMIN_EMAILS = ["skill2skilladmin@gmail.com"].map((e) =>
+  e.toLowerCase().trim()
+);
 
 export default function Register() {
   const nav = useNavigate();
@@ -52,9 +26,17 @@ export default function Register() {
     e.preventDefault();
     const eobj = {};
 
+    const emailNorm = (form.email || "").toLowerCase().trim();
+
     if (!isEmail(form.email)) eobj.email = "Введите корректный email";
     if ((form.password || "").length < 6)
       eobj.password = "Минимум 6 символов";
+
+    // запрещаем регистрировать админ-почту через обычную форму
+    if (ADMIN_EMAILS.includes(emailNorm)) {
+      eobj.email =
+        "Этот email зарезервирован для администратора. Используйте другой.";
+    }
 
     setErr(eobj);
     if (Object.keys(eobj).length) return;
@@ -69,7 +51,7 @@ export default function Register() {
 
       const email = cred.user.email;
 
-      // основной юзер для локального профиля (для остальных фич)
+      // локальный профиль для остальных фич (чат, профиль, рейтинг и т.п.)
       const newUser = {
         email,
         password: form.password, // можно позже убрать, если локально не нужен
@@ -78,9 +60,6 @@ export default function Register() {
 
       // сохраняем «текущего» пользователя локально
       saveUser(newUser);
-
-      // добавляем/обновляем запись в общем списке пользователей (для Excel / админки)
-      saveUserToLocalList({ email });
 
       // 🔥 сохраняем глобальный профиль в Firestore,
       // чтобы все устройства видели этого пользователя

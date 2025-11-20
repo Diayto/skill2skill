@@ -1,12 +1,14 @@
+// src/pages/Login.jsx
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { setAuth } from "../lib/storage";
+import { saveUser, setAuth } from "../lib/storage";
 import { isEmail } from "../lib/validators";
 import logo from "../assets/s2s.jpg";
 
 // 🔥 Firebase
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebase";
+import { upsertRemoteUser } from "../lib/usersRemote";
 
 export default function Login() {
   const nav = useNavigate();
@@ -39,9 +41,27 @@ export default function Login() {
         form.password
       );
 
-      // сохраняем email в локальном storage,
-      // чтобы остальная логика (профиль, чат и т.п.) продолжала работать
-      setAuth(cred.user.email);
+      const email = cred.user.email;
+
+      // ✅ гарантируем, что есть локальный профиль (для Home / Profile / Chat)
+      saveUser({
+        email,
+        bio: "",
+        wants: [],
+        offers: [],
+      });
+
+      // ✅ синхронизируем пользователя в Firestore (главная база)
+      try {
+        await upsertRemoteUser(email, {
+          email,
+        });
+      } catch (e) {
+        console.warn("upsertRemoteUser (login) failed:", e);
+      }
+
+      // ✅ сохраняем "сессию" в localStorage
+      setAuth(email);
 
       nav("/home");
     } catch (error) {
@@ -53,9 +73,11 @@ export default function Login() {
         error.code === "auth/wrong-password"
       ) {
         msg = "Неверный email или пароль";
+      } else if (error.code === "auth/invalid-email") {
+        eobj.email = "Некорректный email";
       }
 
-      setErr((prev) => ({ ...prev, password: msg }));
+      setErr((prev) => ({ ...prev, password: msg, ...eobj }));
     }
   };
 
