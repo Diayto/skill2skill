@@ -1,3 +1,4 @@
+// src/pages/Profile.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
@@ -14,7 +15,7 @@ import {
   getMyScoreFor,
   logout,
 } from "../lib/storage";
-import { fetchRemoteUser } from "../lib/usersRemote"; // 🔥 добавили
+import { fetchRemoteUser } from "../lib/usersRemote";
 import SubscriptionModal from "../components/SubscriptionModal";
 
 /* ===== ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ ===== */

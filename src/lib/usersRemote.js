@@ -12,7 +12,7 @@ import { db } from "./firebase";
 
 const USERS_COL = "users";
 
-// создать/обновить профиль пользователя в Firestore
+// 🔥 создать/обновить профиль пользователя в Firestore
 export async function upsertRemoteUser(user) {
   if (!user?.email) return;
 
@@ -30,7 +30,7 @@ export async function upsertRemoteUser(user) {
     createdAt,
   } = user;
 
-  // Нормализуем wants/offers, чтобы в базе всегда были массивы
+  // Нормализуем wants/offers, чтобы в базе всегда были массивы строк
   const normalizedWants = Array.isArray(wants)
     ? wants
     : typeof wants === "string" && wants.trim()
@@ -67,7 +67,7 @@ export async function upsertRemoteUser(user) {
     telegram,
     instagram,
     ratings: Array.isArray(ratings) ? ratings : [],
-    sub: normalizedSub,          // объект подписки
+    sub: normalizedSub, // объект подписки
     subPlan: normalizedSub.plan, // на всякий случай отдельным полем
     createdAt: createdAt || serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -76,21 +76,22 @@ export async function upsertRemoteUser(user) {
   await setDoc(ref, payload, { merge: true });
 }
 
-// удалить пользователя по email (для админа)
+// 🔥 удалить пользователя по email (для админа)
 export async function deleteRemoteUser(email) {
   if (!email) return;
   const ref = doc(db, USERS_COL, email);
   await deleteDoc(ref);
 }
 
-// получить одного пользователя по email
+// 🔥 получить одного пользователя по email
 export async function fetchRemoteUser(email) {
+  if (!email) return null;
   const ref = doc(db, USERS_COL, email);
   const snap = await getDoc(ref);
   return snap.exists() ? snap.data() : null;
 }
 
-// получить всех пользователей
+// 🔥 получить всех пользователей
 export async function fetchRemoteUsers() {
   const colRef = collection(db, USERS_COL);
   const snap = await getDocs(colRef);

@@ -1,5 +1,7 @@
+// src/lib/storage.js
 import { signOut } from "firebase/auth";
 import { auth } from "./firebase";
+import { upsertRemoteUser } from "./usersRemote"; // 🔥 добавили
 
 // ---------- USERS / AUTH ----------
 const KEY = "s2s-users";
@@ -27,17 +29,21 @@ function normalizeSub(sub) {
 export function saveUser(u) {
   const all = readAllUsers();
   const i = all.findIndex((x) => x.email === u.email);
+
+  let saved;
+
   if (i >= 0) {
     // не затираем план подписки
     const prev = all[i];
     const keepSub = normalizeSub(prev.sub);
-    all[i] = {
+    saved = {
       ...prev,
       ...u,
       sub: keepSub,
     };
+    all[i] = saved;
   } else {
-    all.push({
+    saved = {
       photo: "",
       bio: "",
       wants: [],
@@ -45,9 +51,19 @@ export function saveUser(u) {
       ratings: [],
       sub: { plan: "basic" }, // по умолчанию — базовый план
       ...u,
-    });
+    };
+    all.push(saved);
   }
+
   writeAllUsers(all);
+
+  // 🔥 Синхронизируем пользователя в Firestore
+  // чтобы другие аккаунты видели его описание, wants/offers и т.д.
+  upsertRemoteUser(saved).catch((err) => {
+    console.error("[saveUser] upsertRemoteUser error", err);
+  });
+
+  return saved;
 }
 
 export function getUsers() {
