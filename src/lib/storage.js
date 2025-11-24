@@ -343,7 +343,7 @@ export function remainingMsForLesson(aEmail, bEmail) {
 export function getVideoRoomUrl(aEmail, bEmail) {
   const id = threadId(aEmail, bEmail);
   const safeId = id.replace(/[^a-z0-9]/gi, "-");
-  return `https://video.skill2skill.kz/skill2skill-${safeId}`;
+  return `https://meet.jit.si/skill2skill-${safeId}`;
   // ^ тут любой твой домен/поддомен с установленным Jitsi
 }
 
