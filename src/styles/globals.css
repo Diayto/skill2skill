@@ -1450,3 +1450,125 @@ a:active{
     padding-inline: 10px;
   }
 }
+/* ===== Мобильная версия телефонов (до 480px) ===== */
+@media (max-width: 480px) {
+  body {
+    font-size: 14px;
+    overflow-x: hidden; /* убираем горизонтальный скролл */
+  }
+
+  .container {
+    padding: 80px 10px 16px; /* запас под navbar и меньше поля */
+  }
+
+  /* Навбар поуже */
+  .navbar {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    height: 56px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .search {
+    height: 36px;
+    font-size: 13px;
+    padding: 0 10px;
+  }
+
+  .profile-btn {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  /* Список пользователей — по одному в столбик, чуть компактнее */
+  .home-shell {
+    gap: 10px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .user-card {
+    padding: 10px 10px;
+  }
+
+  /* Профиль: шапка в колонку, блоки в один столбец */
+  .profile-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .head-right {
+    width: 100%;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  /* Чат: на весь экран, крупные элементы */
+  .chat-shell {
+    height: 100dvh;
+    grid-template-rows: 56px 1fr auto;
+  }
+
+  .chat-head {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .chat-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .chat-actions .btn,
+  .chat-actions .pill,
+  .chat-actions .timer-pill {
+    font-size: 12px;
+    padding-inline: 8px;
+    height: 32px;
+  }
+
+  .chat-body {
+    padding: 8px 10px 6px;
+  }
+
+  .bubble {
+    max-width: 80vw; /* пузырьки не упираются в края */
+  }
+
+  .chat-input {
+    padding: 8px 10px 10px;
+    gap: 8px;
+  }
+
+  .chat-input textarea {
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .chat-input .btn-primary {
+    min-width: 90px;
+    padding-inline: 10px;
+    font-size: 14px;
+  }
+
+  /* Админ-таблица: скролл по горизонтали, а не ломаем вёрстку */
+  .admin-table-wrap {
+    overflow-x: auto;
+  }
+
+  .admin-table {
+    min-width: 600px;
+  }
+}
