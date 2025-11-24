@@ -3,7 +3,7 @@ import {
   Link,
   useNavigate,
   useParams,
-  useLocation, // 👈 добавили
+  useLocation,
 } from "react-router-dom";
 import {
   getAuth,
@@ -14,7 +14,8 @@ import {
   getMyScoreFor,
   logout,
 } from "../lib/storage";
-import SubscriptionModal from "../components/SubscriptionModal"; // 👈 окно подписки
+import { fetchRemoteUser } from "../lib/usersRemote"; // 🔥 добавили
+import SubscriptionModal from "../components/SubscriptionModal";
 
 /* ===== ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ ===== */
 
@@ -116,7 +117,7 @@ export default function Profile() {
   const viewingEmail = params.email || myEmail;
   const isMe = viewingEmail === myEmail;
 
-  // исходные данные
+  // исходные данные (fallback, если ничего не найдём)
   const initial =
     getUser(viewingEmail) || {
       email: viewingEmail,
@@ -126,8 +127,56 @@ export default function Profile() {
       offers: [],
       ratings: [],
     };
+
   const [user, setUser] = useState(initial);
-  useEffect(() => setUser(getUser(viewingEmail) || initial), [viewingEmail]);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadError, setLoadError] = useState("");
+
+  // грузим профиль: свой — из localStorage, чужой — из Firestore
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile() {
+      setLoadingProfile(true);
+      setLoadError("");
+
+      try {
+        if (isMe) {
+          // свой профиль — локально
+          const local = getUser(viewingEmail) || initial;
+          if (!cancelled) setUser(local);
+        } else {
+          // чужой профиль — пробуем Firestore
+          const remote = await fetchRemoteUser(viewingEmail);
+
+          if (!cancelled) {
+            if (remote) {
+              setUser(remote); // данные из Firestore
+            } else {
+              const local = getUser(viewingEmail) || initial;
+              setUser(local);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[Profile] loadProfile error", e);
+        if (!cancelled) {
+          setLoadError("Не удалось загрузить профиль пользователя.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingProfile(false);
+        }
+      }
+    }
+
+    loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingEmail, isMe]);
 
   // рейтинг
   const avg = getAverageRating(viewingEmail);
@@ -146,14 +195,15 @@ export default function Profile() {
   };
 
   const saveProfile = () => {
-    saveUser({
+    const saved = saveUser({
       email: user.email,
       photo: user.photo || "",
       bio: user.bio || "",
       wants: user.wants || [],
       offers: user.offers || [],
     });
-    setUser(getUser(viewingEmail));
+    // saveUser возвращает обновлённого пользователя
+    setUser(saved || getUser(viewingEmail) || user);
   };
 
   const stats = useMemo(
@@ -198,6 +248,12 @@ export default function Profile() {
       </button>
 
       <div className="container">
+        {/* статус загрузки/ошибка */}
+        {loadingProfile && (
+          <p className="profile-status">Загружаем профиль…</p>
+        )}
+        {loadError && <p className="profile-status error">{loadError}</p>}
+
         <div className="profile-shell">
           {/* Шапка профиля */}
           <div className="profile-head card">
@@ -227,11 +283,9 @@ export default function Profile() {
                 </div>
                 <div className="stat-chips">
                   <span className="chip">
-                    {" "}
                     Хочу: <b>{stats.wants}</b>
                   </span>
                   <span className="chip">
-                    {" "}
                     Учу: <b>{stats.offers}</b>
                   </span>
                   <span className="chip">
