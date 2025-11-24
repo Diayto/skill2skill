@@ -55,19 +55,131 @@ function fmtTimer(ms) {
 }
 
 /**
- * Видеозвонок через Jitsi внутри чата.
- * Пользователь остаётся в приложении, видео встраивается через iframe.
+ * Плавающее окно видеозвонка через Jitsi.
+ * - позиционируется поверх чата (position: fixed)
+ * - можно перетаскивать за верхнюю панель
+ * - можно менять размер за нижний правый угол
  */
 function VideoCall({ roomUrl }) {
+  const [pos, setPos] = useState({ x: 24, y: 80 });
+  const [size, setSize] = useState({ width: 480, height: 270 });
+  const [drag, setDrag] = useState(null); // {startX, startY, origX, origY}
+  const [resize, setResize] = useState(null); // {startX, startY, origW, origH}
+
+  useEffect(() => {
+    function onMouseMove(e) {
+      if (drag) {
+        const dx = e.clientX - drag.startX;
+        const dy = e.clientY - drag.startY;
+        setPos({
+          x: drag.origX + dx,
+          y: drag.origY + dy,
+        });
+      } else if (resize) {
+        const dx = e.clientX - resize.startX;
+        const dy = e.clientY - resize.startY;
+        setSize((prev) => ({
+          width: Math.max(320, resize.origW + dx),
+          height: Math.max(180, resize.origH + dy),
+        }));
+      }
+    }
+
+    function onMouseUp() {
+      if (drag) setDrag(null);
+      if (resize) setResize(null);
+    }
+
+    if (drag || resize) {
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [drag, resize]);
+
   if (!roomUrl) return null;
 
   return (
-    <div className="video-call-wrapper">
-      <iframe
-        className="video-call-frame"
-        src={roomUrl}
-        allow="camera; microphone; fullscreen; display-capture"
-        title="Видео-звонок"
+    <div
+      style={{
+        position: "fixed",
+        left: pos.x,
+        top: pos.y,
+        width: size.width,
+        height: size.height + 32, // 32px — высота шапки
+        zIndex: 9999,
+        background: "#000",
+        borderRadius: 16,
+        overflow: "hidden",
+        boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* Шапка окна — за неё двигаем */}
+      <div
+        style={{
+          height: 32,
+          background: "rgba(0,0,0,0.8)",
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          padding: "0 10px",
+          fontSize: 12,
+          cursor: drag ? "grabbing" : "grab",
+          userSelect: "none",
+        }}
+        onMouseDown={(e) => {
+          setDrag({
+            startX: e.clientX,
+            startY: e.clientY,
+            origX: pos.x,
+            origY: pos.y,
+          });
+        }}
+      >
+        Видеозвонок (можно перетащить)
+      </div>
+
+      {/* Сам Jitsi-iframe */}
+      <div style={{ flex: 1 }}>
+        <iframe
+          src={roomUrl}
+          title="Видео-звонок"
+          allow="camera; microphone; fullscreen; display-capture"
+          style={{
+            width: "100%",
+            height: "100%",
+            border: "none",
+          }}
+        />
+      </div>
+
+      {/* Уголок для изменения размера */}
+      <div
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          setResize({
+            startX: e.clientX,
+            startY: e.clientY,
+            origW: size.width,
+            origH: size.height,
+          });
+        }}
+        style={{
+          position: "absolute",
+          right: 0,
+          bottom: 0,
+          width: 18,
+          height: 18,
+          cursor: "nwse-resize",
+          background:
+            "linear-gradient(135deg, transparent 0, transparent 40%, rgba(255,255,255,0.7) 40%, rgba(255,255,255,0.7) 100%)",
+        }}
       />
     </div>
   );
@@ -264,7 +376,7 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Видеозвонок внутри приложения — только когда урок активен */}
+      {/* Плавающее окно видеозвонка — только когда урок активен */}
       {lessonActive && <VideoCall roomUrl={videoUrl} />}
 
       <div className="chat-body" ref={listRef}>
