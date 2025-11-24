@@ -20,6 +20,8 @@ import {
   subscribeToSession,
 } from "../lib/lessonsRemote";
 
+import FloatingVideoCall from "../components/FloatingVideoCall";
+
 function Avatar({ user }) {
   if (user?.photo)
     return <img className="chat-ava" src={user.photo} alt="avatar" />;
@@ -54,137 +56,6 @@ function fmtTimer(ms) {
   )}:${String(s).padStart(2, "0")}`;
 }
 
-/**
- * Плавающее окно видеозвонка через Jitsi.
- * - позиционируется поверх чата (position: fixed)
- * - можно перетаскивать за верхнюю панель
- * - можно менять размер за нижний правый угол
- */
-function VideoCall({ roomUrl }) {
-  const [pos, setPos] = useState({ x: 24, y: 80 });
-  const [size, setSize] = useState({ width: 480, height: 270 });
-  const [drag, setDrag] = useState(null); // {startX, startY, origX, origY}
-  const [resize, setResize] = useState(null); // {startX, startY, origW, origH}
-
-  useEffect(() => {
-    function onMouseMove(e) {
-      if (drag) {
-        const dx = e.clientX - drag.startX;
-        const dy = e.clientY - drag.startY;
-        setPos({
-          x: drag.origX + dx,
-          y: drag.origY + dy,
-        });
-      } else if (resize) {
-        const dx = e.clientX - resize.startX;
-        const dy = e.clientY - resize.startY;
-        setSize((prev) => ({
-          width: Math.max(320, resize.origW + dx),
-          height: Math.max(180, resize.origH + dy),
-        }));
-      }
-    }
-
-    function onMouseUp() {
-      if (drag) setDrag(null);
-      if (resize) setResize(null);
-    }
-
-    if (drag || resize) {
-      window.addEventListener("mousemove", onMouseMove);
-      window.addEventListener("mouseup", onMouseUp);
-    }
-
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [drag, resize]);
-
-  if (!roomUrl) return null;
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        left: pos.x,
-        top: pos.y,
-        width: size.width,
-        height: size.height + 32, // 32px — высота шапки
-        zIndex: 9999,
-        background: "#000",
-        borderRadius: 16,
-        overflow: "hidden",
-        boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* Шапка окна — за неё двигаем */}
-      <div
-        style={{
-          height: 32,
-          background: "rgba(0,0,0,0.8)",
-          color: "#fff",
-          display: "flex",
-          alignItems: "center",
-          padding: "0 10px",
-          fontSize: 12,
-          cursor: drag ? "grabbing" : "grab",
-          userSelect: "none",
-        }}
-        onMouseDown={(e) => {
-          setDrag({
-            startX: e.clientX,
-            startY: e.clientY,
-            origX: pos.x,
-            origY: pos.y,
-          });
-        }}
-      >
-        Видеозвонок (можно перетащить)
-      </div>
-
-      {/* Сам Jitsi-iframe */}
-      <div style={{ flex: 1 }}>
-        <iframe
-          src={roomUrl}
-          title="Видео-звонок"
-          allow="camera; microphone; fullscreen; display-capture"
-          style={{
-            width: "100%",
-            height: "100%",
-            border: "none",
-          }}
-        />
-      </div>
-
-      {/* Уголок для изменения размера */}
-      <div
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          setResize({
-            startX: e.clientX,
-            startY: e.clientY,
-            origW: size.width,
-            origH: size.height,
-          });
-        }}
-        style={{
-          position: "absolute",
-          right: 0,
-          bottom: 0,
-          width: 18,
-          height: 18,
-          cursor: "nwse-resize",
-          background:
-            "linear-gradient(135deg, transparent 0, transparent 40%, rgba(255,255,255,0.7) 40%, rgba(255,255,255,0.7) 100%)",
-        }}
-      />
-    </div>
-  );
-}
-
 export default function Chat() {
   const nav = useNavigate();
   const { email } = useParams(); // собеседник
@@ -205,7 +76,10 @@ export default function Chat() {
   const [session, setSession] = useState(null);
 
   // тикер раз в секунду, чтобы таймер обновлялся
-  const [tick, setTick] = useState(0);
+  const [tick, setTick] = useState(0); // eslint-disable-line no-unused-vars
+
+  // показывать ли окно звонка (✕ просто скрывает его)
+  const [showCall, setShowCall] = useState(true);
 
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -283,6 +157,13 @@ export default function Chat() {
 
   const leftMs = session ? Math.max(0, session.end - Date.now()) : 0;
   const lessonActive = !!(session && session.active && leftMs > 0);
+
+  // если начался (или возобновился) активный урок — снова показываем окно
+  useEffect(() => {
+    if (lessonActive) {
+      setShowCall(true);
+    }
+  }, [lessonActive]);
 
   // ссылка на видеокомнату для пары (одинаковая у обоих)
   const videoUrl = lessonActive ? getVideoRoomUrl(me, email) : "";
@@ -377,7 +258,12 @@ export default function Chat() {
       </div>
 
       {/* Плавающее окно видеозвонка — только когда урок активен */}
-      {lessonActive && <VideoCall roomUrl={videoUrl} />}
+      {lessonActive && showCall && (
+        <FloatingVideoCall
+          roomUrl={videoUrl}
+          onClose={() => setShowCall(false)}
+        />
+      )}
 
       <div className="chat-body" ref={listRef}>
         {messages.length === 0 ? (

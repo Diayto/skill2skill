@@ -341,7 +341,9 @@ export function remainingMsForLesson(aEmail, bEmail) {
  * Оба участника получат один и тот же URL.
  */
 export function getVideoRoomUrl(aEmail, bEmail) {
-  const id = threadId(aEmail, bEmail); // например "a@gmail.com::b@gmail.com"
-  const safeId = id.replace(/[^a-z0-9]/gi, "-"); // превращаем в безопасное имя
-  return `https://meet.jit.si/skill2skill-${safeId}`;
+  const id = threadId(aEmail, bEmail);
+  const safeId = id.replace(/[^a-z0-9]/gi, "-");
+  return `https://video.skill2skill.kz/skill2skill-${safeId}`;
+  // ^ тут любой твой домен/поддомен с установленным Jitsi
 }
+
