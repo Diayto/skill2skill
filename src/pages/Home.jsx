@@ -1,3 +1,4 @@
+// src/pages/Home.jsx
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
@@ -53,20 +54,21 @@ export default function Home() {
   const filtered = useMemo(() => {
     let list = users || [];
 
-    // 👇 исключаем самого себя
+    // 1) исключаем самого себя
     if (myEmail) {
       list = list.filter(
         (u) => (u.email || "").toLowerCase().trim() !== myEmail
       );
     }
 
-    // 👇 исключаем ВСЕ админ-почты из списка
+    // 2) исключаем ВСЕ админ-почты из списка
     list = list.filter((u) => {
       const email = (u.email || "").toLowerCase().trim();
       if (!email) return false;
       return !ADMIN_EMAILS.includes(email);
     });
 
+    // 3) поиск
     const s = q.trim().toLowerCase();
     if (s) {
       list = list.filter((u) => {
@@ -83,6 +85,7 @@ export default function Home() {
       });
     }
 
+    // 4) фильтр по режиму
     if (mode === "offers") {
       list = list.filter((u) => (u.offers || []).length > 0);
     } else if (mode === "wants") {

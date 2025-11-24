@@ -1,7 +1,7 @@
 // src/pages/AdminUsers.jsx
 import { useEffect, useState } from "react";
 import { getAverageRating } from "../lib/storage";
-import { fetchRemoteUsers } from "../lib/usersRemote";
+import { fetchRemoteUsers, deleteRemoteUser } from "../lib/usersRemote";
 import { exportUsersToExcel } from "../utils/exportUsersToExcel";
 
 // 🔐 тот же список админов, что и в App.jsx / Sidebar
@@ -13,31 +13,57 @@ export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [deletingEmail, setDeletingEmail] = useState("");
+
+  async function loadUsers() {
+    try {
+      setLoading(true);
+      setLoadError("");
+
+      const list = await fetchRemoteUsers();
+
+      // фильтруем админ-аккаунты, чтобы не светились в таблице
+      const filtered = (list || []).filter((u) => {
+        const email = (u.email || "").toLowerCase().trim();
+        return email && !ADMIN_EMAILS.includes(email);
+      });
+
+      setUsers(filtered);
+    } catch (e) {
+      console.error("Failed to load users from Firestore", e);
+      setLoadError("Не удалось загрузить пользователей из базы данных.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const list = await fetchRemoteUsers();
-
-        // фильтруем админ-аккаунты, чтобы не светились в таблице
-        const filtered = (list || []).filter((u) => {
-          const email = (u.email || "").toLowerCase().trim();
-          return email && !ADMIN_EMAILS.includes(email);
-        });
-
-        setUsers(filtered);
-      } catch (e) {
-        console.error("Failed to load users from Firestore", e);
-        setLoadError("Не удалось загрузить пользователей из базы данных.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
+    loadUsers();
   }, []);
 
   const total = users.length;
+
+  async function handleDelete(user) {
+    if (!user?.email) return;
+
+    const ok = window.confirm(
+      `Точно удалить пользователя ${user.email}? Это действие нельзя отменить.`
+    );
+    if (!ok) return;
+
+    try {
+      setDeletingEmail(user.email);
+      await deleteRemoteUser(user.email);
+
+      // убираем пользователя из стейта без перезагрузки страницы
+      setUsers((prev) => prev.filter((u) => u.email !== user.email));
+    } catch (err) {
+      console.error("Failed to delete user", err);
+      alert("Ошибка при удалении пользователя. Проверь консоль.");
+    } finally {
+      setDeletingEmail("");
+    }
+  }
 
   return (
     <div className="admin-wrap">
@@ -89,6 +115,7 @@ export default function AdminUsers() {
                   <th>Хочет изучать (wants)</th>
                   <th>План</th>
                   <th>Средний рейтинг</th>
+                  <th>Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -109,6 +136,17 @@ export default function AdminUsers() {
                     <td>{u.sub?.plan || "basic"}</td>
                     <td>
                       {u.email ? getAverageRating(u.email) || "—" : "—"}
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-danger"
+                        disabled={deletingEmail === u.email}
+                        onClick={() => handleDelete(u)}
+                      >
+                        {deletingEmail === u.email
+                          ? "Удаляем..."
+                          : "Удалить"}
+                      </button>
                     </td>
                   </tr>
                 ))}
